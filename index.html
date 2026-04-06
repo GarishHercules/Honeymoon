@@ -250,11 +250,133 @@
       box-shadow: 0 0 20px rgba(14,165,233,0.8);
     }
 
+    /* ===== モバイル：ボトムシート ===== */
     @media (max-width: 768px) {
-      .main { flex-direction: column; }
-      #panel { width: 100%; height: 50vh; border-left: none; border-top: 1px solid #334155; }
-      #map { height: 50vh; }
+      header {
+        padding: 10px 14px;
+        gap: 10px;
+      }
+      header .logo { font-size: 22px; }
+      header h1 { font-size: 14px; }
+      header p { display: none; }
+      header .badge { font-size: 11px; padding: 3px 9px; }
+
+      .main { position: relative; }
+
+      #map {
+        position: absolute;
+        inset: 0;
+        height: 100% !important;
+        width: 100%;
+        z-index: 1;
+      }
+
+      /* サイドパネルをボトムシートに変換 */
+      #panel {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: auto;
+        max-height: 80vh;
+        border-left: none;
+        border-top: none;
+        border-radius: 20px 20px 0 0;
+        z-index: 1000;
+        transform: translateY(calc(100% - 64px)); /* 最小表示：ヒントだけ見せる */
+        transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+        box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
+        display: flex;
+        flex-direction: column;
+      }
+      #panel.sheet-open {
+        transform: translateY(0);
+      }
+      #panel.sheet-peek {
+        transform: translateY(calc(100% - 64px));
+      }
+
+      /* ドラッグハンドル */
+      #sheet-handle {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 0 6px;
+        cursor: pointer;
+        flex-shrink: 0;
+        background: #1e293b;
+        border-radius: 20px 20px 0 0;
+        gap: 4px;
+      }
+      #sheet-handle-bar {
+        width: 40px;
+        height: 4px;
+        background: #475569;
+        border-radius: 2px;
+      }
+      #sheet-hint {
+        font-size: 12px;
+        color: #94a3b8;
+        padding-bottom: 2px;
+      }
+      #sheet-hint.hidden { display: none; }
+
+      /* パネルヘッダーにとじるボタン追加 */
+      #panel-header {
+        position: relative;
+      }
+      #close-btn {
+        display: flex;
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        border: none;
+        color: white;
+        font-size: 18px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        line-height: 1;
+      }
+
+      #panel-content { max-height: calc(80vh - 130px); }
+
+      /* デフォルトパネルはモバイルでは非表示 */
+      #default-panel { display: none !important; }
+
+      /* 凡例を非表示 */
+      .legend { display: none !important; }
+
+      /* 都市リストボタン（マップ上に表示） */
+      #city-list-btn {
+        display: flex;
+        position: absolute;
+        bottom: 80px;
+        right: 14px;
+        z-index: 999;
+        background: #1a5f7a;
+        border: 2px solid #0ea5e9;
+        color: white;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        cursor: pointer;
+      }
     }
+
+    /* PC では非表示にするモバイル専用要素 */
+    #sheet-handle { display: none; }
+    #close-btn { display: none; }
+    #city-list-btn { display: none; }
   </style>
 </head>
 <body>
@@ -269,7 +391,17 @@
 
 <div class="main">
   <div id="map"></div>
+
+  <!-- モバイル：都市一覧ボタン -->
+  <button id="city-list-btn" title="都市一覧">🗺️</button>
+
   <div id="panel">
+    <!-- モバイル専用ドラッグハンドル -->
+    <div id="sheet-handle">
+      <div id="sheet-handle-bar"></div>
+      <div id="sheet-hint">▲ タップして詳細を見る</div>
+    </div>
+
     <div id="default-panel">
       <div class="icon">🗺️</div>
       <h2>空港を選択してください</h2>
@@ -282,6 +414,7 @@
         <div id="panel-title"></div>
         <div id="panel-subtitle"></div>
         <div id="panel-flight"></div>
+        <button id="close-btn">×</button>
       </div>
       <div id="panel-content"></div>
     </div>
@@ -652,8 +785,9 @@ airports.forEach(airport => {
     activeMarker = marker;
     activeAirport = airport;
 
-    // 地図をズーム
-    map.flyTo([airport.lat, airport.lng], 7, {
+    // 地図をズーム（モバイルは少し引いて地図を広く見せる）
+    const zoomLevel = window.innerWidth <= 768 ? 6 : 7;
+    map.flyTo([airport.lat, airport.lng], zoomLevel, {
       duration: 1.2,
       easeLinearity: 0.5
     });
@@ -709,6 +843,146 @@ style.textContent = `
   .leaflet-tooltip { background: transparent; border: none; box-shadow: none; }
 `;
 document.head.appendChild(style);
+
+// ===== モバイル：ボトムシート制御 =====
+const isMobile = () => window.innerWidth <= 768;
+const panel = document.getElementById('panel');
+const sheetHandle = document.getElementById('sheet-handle');
+const sheetHint = document.getElementById('sheet-hint');
+const closeBtn = document.getElementById('close-btn');
+const cityListBtn = document.getElementById('city-list-btn');
+
+function openSheet() {
+  panel.classList.add('sheet-open');
+  panel.classList.remove('sheet-peek');
+  sheetHint.classList.add('hidden');
+}
+
+function closeSheet() {
+  panel.classList.remove('sheet-open');
+  panel.classList.add('sheet-peek');
+  sheetHint.classList.remove('hidden');
+  // マーカーをリセット
+  if (activeMarker && activeAirport) {
+    activeMarker.setIcon(createIcon(activeAirport, false));
+    activeMarker = null;
+    activeAirport = null;
+  }
+  // 地図を広域に戻す
+  map.flyTo([50, 15], 4, { duration: 1.0 });
+}
+
+// ハンドルタップで開閉トグル
+sheetHandle.addEventListener('click', () => {
+  if (panel.classList.contains('sheet-open')) {
+    closeSheet();
+  } else {
+    openSheet();
+  }
+});
+
+// ×ボタンで閉じる
+closeBtn.addEventListener('click', closeSheet);
+
+// タッチスワイプでドラッグ
+let touchStartY = 0;
+let touchStartTime = 0;
+sheetHandle.addEventListener('touchstart', e => {
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = Date.now();
+}, { passive: true });
+sheetHandle.addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const dt = Date.now() - touchStartTime;
+  if (dy > 40 || (dy > 10 && dt < 200)) {
+    closeSheet(); // 下スワイプで閉じる
+  } else if (dy < -20) {
+    openSheet(); // 上スワイプで開く
+  }
+}, { passive: true });
+
+// showPanel をモバイル対応に拡張
+const _origShowPanel = showPanel;
+window.showPanel = function(airport) {
+  _origShowPanel(airport);
+  if (isMobile()) openSheet();
+};
+
+// マーカークリック時もモバイルでは地図ズームを調整
+airports.forEach(airport => {
+  const m = markers[airport.id];
+  if (!m) return;
+  // 既存のclickにモバイル追加処理は marker.on('click') 内で処理済み
+  // ただしflyToのズームレベルをモバイルでは少し引いておく
+});
+
+// 都市一覧ボタン：タップするとリスト表示（モバイル用簡易ナビ）
+const cityListModal = document.createElement('div');
+cityListModal.id = 'city-modal';
+cityListModal.style.cssText = `
+  display:none; position:fixed; inset:0; z-index:2000;
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+  flex-direction:column; align-items:center; justify-content:flex-end;
+`;
+cityListModal.innerHTML = `
+  <div style="
+    background:#1e293b; border-radius:20px 20px 0 0; width:100%;
+    padding:20px 16px 32px; border-top:2px solid #0ea5e9;
+  ">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <span style="font-size:16px; font-weight:700; color:#f0f9ff;">✈️ 就航都市を選ぶ</span>
+      <button id="modal-close" style="background:none; border:none; color:#94a3b8; font-size:24px; cursor:pointer;">×</button>
+    </div>
+    <div id="city-modal-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+  </div>
+`;
+document.body.appendChild(cityListModal);
+
+const modalList = document.getElementById('city-modal-list');
+airports.forEach(airport => {
+  const btn = document.createElement('button');
+  btn.style.cssText = `
+    background:#0f172a; border:1px solid #334155; border-radius:12px;
+    padding:12px 10px; color:#f1f5f9; font-size:14px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+    font-family:inherit; text-align:left;
+  `;
+  btn.innerHTML = `
+    <span style="font-size:22px">${airport.emoji}</span>
+    <span style="font-weight:700">${airport.name}</span>
+    <span style="font-size:10px; color:#64748b;">${airport.frequency}</span>
+  `;
+  btn.addEventListener('click', () => {
+    cityListModal.style.display = 'none';
+    // マーカークリックと同じ動作
+    if (activeMarker && activeAirport) {
+      activeMarker.setIcon(createIcon(activeAirport, false));
+    }
+    const m = markers[airport.id];
+    m.setIcon(createIcon(airport, true));
+    activeMarker = m;
+    activeAirport = airport;
+    const zoom = isMobile() ? 6 : 7;
+    map.flyTo([airport.lat, airport.lng], zoom, { duration: 1.2 });
+    showPanel(airport);
+  });
+  modalList.appendChild(btn);
+});
+
+cityListBtn.addEventListener('click', () => {
+  cityListModal.style.display = 'flex';
+});
+document.getElementById('modal-close').addEventListener('click', () => {
+  cityListModal.style.display = 'none';
+});
+cityListModal.addEventListener('click', e => {
+  if (e.target === cityListModal) cityListModal.style.display = 'none';
+});
+
+// 初期状態：モバイルではpeek状態に
+if (isMobile()) {
+  panel.classList.add('sheet-peek');
+}
 </script>
 </body>
 </html>
