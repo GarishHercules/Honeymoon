@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ANA直行便 ヨーロッパ旅行マップ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: linear-gradient(135deg, #1a5f7a 0%, #16213e 100%);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 2px solid #0ea5e9;
+      flex-shrink: 0;
+    }
+    header .logo {
+      font-size: 28px;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f0f9ff;
+    }
+    header p {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    header .badge {
+      margin-left: auto;
+      background: #0ea5e9;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #map {
+      flex: 1;
+      z-index: 1;
+    }
+
+    /* サイドパネル */
+    #panel {
+      width: 380px;
+      background: #1e293b;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #panel-header {
+      background: linear-gradient(135deg, #1a5f7a, #0f766e);
+      padding: 18px 20px;
+      flex-shrink: 0;
+    }
+    #panel-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f0f9ff;
+    }
+    #panel-subtitle {
+      font-size: 12px;
+      color: #bae6fd;
+      margin-top: 4px;
+    }
+    #panel-flight {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .flight-badge {
+      background: rgba(255,255,255,0.15);
+      color: #e0f2fe;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    #panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    #panel-content::-webkit-scrollbar { width: 6px; }
+    #panel-content::-webkit-scrollbar-track { background: #1e293b; }
+    #panel-content::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 16px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #334155;
+    }
+
+    .city-spots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .spot-tag {
+      background: #1e3a5f;
+      border: 1px solid #2563eb;
+      color: #93c5fd;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    .daytrip-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .daytrip-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .daytrip-item:hover {
+      border-color: #0ea5e9;
+      background: #1e293b;
+    }
+    .daytrip-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .daytrip-time {
+      font-size: 11px;
+      color: #f59e0b;
+      margin-top: 2px;
+    }
+    .daytrip-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    .style-box {
+      background: linear-gradient(135deg, #1e3a5f, #1a3a2a);
+      border: 1px solid #0ea5e9;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #bae6fd;
+      line-height: 1.6;
+    }
+
+    /* デフォルト表示 */
+    #default-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px;
+      text-align: center;
+      color: #64748b;
+    }
+    #default-panel .icon { font-size: 48px; margin-bottom: 16px; }
+    #default-panel h2 { font-size: 16px; color: #94a3b8; margin-bottom: 8px; }
+    #default-panel p { font-size: 13px; line-height: 1.7; }
+
+    /* 凡例 */
+    .legend {
+      position: absolute;
+      bottom: 24px;
+      left: 16px;
+      z-index: 1000;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #94a3b8;
+      backdrop-filter: blur(4px);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    /* カスタムマーカー */
+    .airport-marker {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid #0ea5e9;
+      background: #1a5f7a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 12px rgba(14,165,233,0.5);
+    }
+    .airport-marker:hover, .airport-marker.active {
+      background: #0ea5e9;
+      transform: scale(1.2);
+      box-shadow: 0 0 20px rgba(14,165,233,0.8);
+    }
+
+    @media (max-width: 768px) {
+      .main { flex-direction: column; }
+      #panel { width: 100%; height: 50vh; border-left: none; border-top: 1px solid #334155; }
+      #map { height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">✈️</div>
+  <div>
+    <h1>ANA直行便 ヨーロッパ旅行マップ</h1>
+    <p>羽田・成田発 直行便就航都市 ／ 各空港周辺1週間滞在モデル</p>
+  </div>
+  <div class="badge">9都市 全路線</div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+  <div id="panel">
+    <div id="default-panel">
+      <div class="icon">🗺️</div>
+      <h2>空港を選択してください</h2>
+      <p>地図上の空港マーカーをクリックすると<br>その周辺の観光情報が表示されます</p>
+      <br>
+      <p style="color:#475569; font-size:11px;">9都市すべてのANA直行便<br>就航先をプロットしています</p>
+    </div>
+    <div id="city-panel" style="display:none; flex-direction:column; height:100%;">
+      <div id="panel-header">
+        <div id="panel-title"></div>
+        <div id="panel-subtitle"></div>
+        <div id="panel-flight"></div>
+      </div>
+      <div id="panel-content"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const airports = [
+  {
+    id: 'london',
+    name: 'ロンドン',
+    airport: 'LHR：ヒースロー空港',
+    emoji: '🇬🇧',
+    lat: 51.470,
+    lng: -0.454,
+    departure: '羽田 (HND)',
+    frequency: '毎日運航',
+    style: '英語圏・鉄道網充実。英国全土＋大陸ヨーロッパへのゲートウェイとして最適。',
+    citySpots: [
+      'バッキンガム宮殿', '大英博物館', 'ロンドン塔・タワーブリッジ',
+      'ウェストミンスター寺院', 'ナショナルギャラリー', 'コヴェントガーデン'
+    ],
+    daytrips: [
+      { name: 'ウィンザー', time: '約30分', desc: 'ウィンザー城（王室の居城）' },
+      { name: 'ブライトン', time: '約1時間', desc: '海辺のリゾート、ロイヤルパビリオン' },
+      { name: 'オックスフォード', time: '約1時間', desc: '世界最古の大学街' },
+      { name: 'ケンブリッジ', time: '約1時間', desc: '大学のカレッジ群、パンティング' },
+      { name: 'バース', time: '約1.5時間', desc: 'ローマ時代の浴場遺跡、ジョージアン建築' },
+      { name: 'カンタベリー', time: '約1.5時間', desc: '大聖堂（世界遺産）' },
+      { name: 'ストーンヘンジ', time: '約1.5時間', desc: '先史時代の巨石遺跡（世界遺産）' },
+      { name: 'ストラトフォード・アポン・エイボン', time: '約2時間', desc: 'シェイクスピアの生地' },
+      { name: 'パリ（ユーロスター）', time: '約2.5時間', desc: '国際高速鉄道で日帰りも可能' },
+    ]
+  },
+  {
+    id: 'paris',
+    name: 'パリ',
+    airport: 'CDG：シャルル・ド・ゴール空港',
+    emoji: '🇫🇷',
+    lat: 49.010,
+    lng: 2.548,
+    departure: '羽田 (HND)',
+    frequency: '毎日運航',
+    style: 'TGVで各地に高速アクセス。フランスはもちろん、隣国まで足を延ばしやすい文化・美食の中心地。',
+    citySpots: [
+      'エッフェル塔', 'ルーブル美術館', 'ノートルダム大聖堂',
+      'オルセー美術館', 'シャンゼリゼ通り', 'サクレクール寺院', 'マレ地区'
+    ],
+    daytrips: [
+      { name: 'ヴェルサイユ宮殿', time: '約40分（RER）', desc: '絢爛な宮殿と庭園（世界遺産）' },
+      { name: 'ランス', time: '約45分（TGV）', desc: 'シャンパーニュの首都、ゴシック大聖堂' },
+      { name: 'ブリュッセル', time: '約1.5時間（Thalys）', desc: 'グラン・プラス、チョコレート' },
+      { name: 'ストラスブール', time: '約2時間（TGV）', desc: 'ハーフティンバーの旧市街（世界遺産）' },
+      { name: 'ブリュージュ', time: '約2.5時間', desc: '「北のヴェネツィア」、中世の水の都' },
+      { name: 'ロンドン（ユーロスター）', time: '約2.5時間', desc: '国際高速鉄道で訪問可能' },
+      { name: 'ロワール渓谷', time: '約1時間（TGV）', desc: '中世城郭群（世界遺産）' },
+      { name: 'モン・サン・ミシェル', time: '約3.5時間（TGV+バス）', desc: '岩上の修道院（世界遺産）' },
+    ]
+  },
+  {
+    id: 'frankfurt',
+    name: 'フランクフルト',
+    airport: 'FRA',
+    emoji: '🇩🇪',
+    lat: 50.038,
+    lng: 8.562,
+    departure: '羽田 (HND)',
+    frequency: '毎日運航',
+    style: 'ドイツの中心に位置し、ICE網で各地へ1〜2時間圏内。ロマンティック街道の起点としても人気。',
+    citySpots: [
+      'レーマー広場（旧市街）', 'シュテーデル美術館', 'ザクセンハウゼン（アップルワイン）'
+    ],
+    daytrips: [
+      { name: 'ハイデルベルク', time: '約1時間', desc: '古城、ネッカー川の美しい風景' },
+      { name: 'シュトゥットガルト', time: '約1時間', desc: 'メルセデス・BMWミュージアム、ブドウ畑' },
+      { name: 'ライン渓谷', time: '約1〜1.5時間', desc: 'ライン川クルーズ、古城群（世界遺産）' },
+      { name: 'ケルン', time: '約1時間（ICE）', desc: '大聖堂（世界遺産）、ケルン旧市街' },
+      { name: 'ニュルンベルク', time: '約2時間（ICE）', desc: '城塞都市、中世の旧市街' },
+      { name: 'ローテンブルク', time: '約2.5時間', desc: '中世の城壁が残る童話の街' },
+      { name: 'ストラスブール', time: '約1.5時間', desc: 'アルザスの世界遺産都市' },
+      { name: 'リュクサンブール', time: '約2時間', desc: '城塞都市（世界遺産）' },
+    ]
+  },
+  {
+    id: 'munich',
+    name: 'ミュンヘン',
+    airport: 'MUC',
+    emoji: '🇩🇪',
+    lat: 48.354,
+    lng: 11.775,
+    departure: '羽田 (HND)',
+    frequency: '毎日運航',
+    style: 'バイエルン州の中心。アルプスとオーストリアへのゲートウェイとして1週間でも足りないほど見どころが多い。',
+    citySpots: [
+      'マリエン広場（新市庁舎・グロッケンシュピール）', 'ニンフェンブルク宮殿',
+      'ドイツ博物館', 'ホフブロイハウス（ビアホール）'
+    ],
+    daytrips: [
+      { name: 'ノイシュヴァンシュタイン城', time: '約2時間（電車+バス）', desc: '"白鳥城"、ディズニーのモデル' },
+      { name: 'ザルツブルク', time: '約1.5時間', desc: 'モーツァルト生地、旧市街（世界遺産）' },
+      { name: 'キームゼー', time: '約1時間', desc: 'バイエルンの湖水地方' },
+      { name: 'ベルヒテスガーデン', time: '約2時間', desc: 'ケーニヒスゼー、鷲の巣（ヒトラーの山荘）' },
+      { name: 'インスブルック', time: '約2時間', desc: 'アルプスに囲まれたチロルの首都' },
+      { name: 'ニュルンベルク', time: '約1時間（ICE）', desc: '中世城塞都市' },
+      { name: 'レーゲンスブルク', time: '約1.5時間', desc: 'ドナウ川沿いの中世都市（世界遺産）' },
+    ]
+  },
+  {
+    id: 'vienna',
+    name: 'ウィーン',
+    airport: 'VIE',
+    emoji: '🇦🇹',
+    lat: 48.110,
+    lng: 16.570,
+    departure: '羽田 (HND)',
+    frequency: '週3〜4便',
+    style: '中欧周遊の拠点。ハンガリー・スロバキアへも電車で短時間。クラシック音楽・美術の宝庫。',
+    citySpots: [
+      'シェーンブルン宮殿（世界遺産）', 'ベルヴェデーレ宮殿',
+      'シュテファン大聖堂', 'リングシュトラーセ', '美術史美術館', 'ナッシュマルクト'
+    ],
+    daytrips: [
+      { name: 'クロスターノイブルク', time: '約30分', desc: '修道院、ドナウ川の眺望' },
+      { name: 'バーデン・バイ・ウィーン', time: '約40分', desc: '温泉保養地、ベートーヴェンゆかりの地' },
+      { name: 'ワッハウ渓谷（クレムス）', time: '約1時間', desc: 'ドナウ川渓谷のワイン産地（世界遺産）' },
+      { name: 'ブラティスラヴァ', time: '約1時間', desc: 'スロバキアの首都' },
+      { name: 'ブダペスト', time: '約2.5時間', desc: '「ドナウの真珠」（世界遺産）' },
+      { name: 'ザルツブルク', time: '約2.5時間', desc: 'モーツァルト生地、旧市街（世界遺産）' },
+      { name: 'ハルシュタット', time: '約3.5〜4時間', desc: '世界で最も美しい湖畔の村（世界遺産）' },
+    ]
+  },
+  {
+    id: 'brussels',
+    name: 'ブリュッセル',
+    airport: 'BRU',
+    emoji: '🇧🇪',
+    lat: 50.901,
+    lng: 4.484,
+    departure: '成田 (NRT)',
+    frequency: '週3便',
+    style: 'ベネルクス3国の中心。パリ・ロンドン・アムステルダムがいずれも電車で2時間圏内。',
+    citySpots: [
+      'グラン・プラス（世界遺産）', 'アトミウム', 'マンネケン・ピス',
+      'アール・ヌーヴォー建築群', '漫画壁画'
+    ],
+    daytrips: [
+      { name: 'ルーヴァン', time: '約30分', desc: '大学都市、ゴシック市庁舎' },
+      { name: 'ゲント', time: '約30分', desc: '中世の水路の街、聖バーフ大聖堂' },
+      { name: 'アントワープ', time: '約40分', desc: 'ダイヤモンド、ルーベンスの街' },
+      { name: 'ブリュージュ', time: '約1時間', desc: '北のヴェネツィア（世界遺産）' },
+      { name: 'リール（フランス）', time: '約35分（TGV）', desc: 'フランス・フランドルの文化都市' },
+      { name: 'アムステルダム', time: '約2時間', desc: '運河の都、アンネ・フランクの家' },
+      { name: 'ケルン', time: '約2時間', desc: '大聖堂（世界遺産）' },
+      { name: 'パリ', time: '約1.5時間（Thalys）', desc: '週末延泊に最適' },
+    ]
+  },
+  {
+    id: 'milan',
+    name: 'ミラノ',
+    airport: 'MXP：マルペンサ空港',
+    emoji: '🇮🇹',
+    lat: 45.630,
+    lng: 8.723,
+    departure: '羽田 (HND)',
+    frequency: '週3便→毎日運航に拡大中',
+    style: '北イタリア観光の拠点。湖水地方・フィレンツェ・ヴェネツィアへのアクセスも良好。',
+    citySpots: [
+      'ドゥオーモ（大聖堂）', 'ガッレリア・ヴィットーリオ・エマヌエーレ2世',
+      '最後の晩餐（レオナルド・ダ・ヴィンチ）', 'スフォルツェスコ城'
+    ],
+    daytrips: [
+      { name: 'コモ湖', time: '約1時間', desc: 'ジョージ・クルーニーの別荘地、湖水の絶景' },
+      { name: 'マッジョーレ湖', time: '約30〜40分', desc: 'ボッロメオ諸島、庭園' },
+      { name: 'ベルガモ', time: '約50分', desc: '城壁に囲まれた丘上の旧市街' },
+      { name: 'ヴェローナ', time: '約1.5時間', desc: 'ロミオとジュリエットの舞台、円形闘技場' },
+      { name: 'トリノ', time: '約1時間（Frecciarossa）', desc: 'バロック都市、サヴォイア家の宮殿（世界遺産）' },
+      { name: 'フィレンツェ', time: '約2時間（Frecciarossa）', desc: 'ルネサンスの都（世界遺産）' },
+      { name: 'ヴェネツィア', time: '約2.5時間', desc: '水の都（世界遺産）' },
+      { name: 'チンクエ・テッレ', time: '約3時間', desc: '絶壁の5漁村（世界遺産）' },
+    ]
+  },
+  {
+    id: 'stockholm',
+    name: 'ストックホルム',
+    airport: 'ARN：アーランダ空港',
+    emoji: '🇸🇪',
+    lat: 59.652,
+    lng: 17.919,
+    departure: '羽田 (HND)',
+    frequency: '週3便（火・木・日）',
+    style: '北欧の自然と洗練された都市文化が融合。夏は白夜、冬はオーロラ観測も可能。',
+    citySpots: [
+      'ガムラスタン（旧市街）', 'ヴァーサ号博物館', 'スカンセン野外博物館',
+      '王宮', 'ABBAミュージアム', 'ユールゴーデン島'
+    ],
+    daytrips: [
+      { name: 'ドロットニングホルム宮殿', time: '約40分（フェリー or バス）', desc: 'スウェーデン王室居城（世界遺産）' },
+      { name: 'シグトゥーナ', time: '約1時間', desc: 'スウェーデン最古の都市' },
+      { name: 'ウプサラ', time: '約40分', desc: '北欧最古の大学都市、大聖堂' },
+      { name: 'グリプスホルム城', time: '約1時間', desc: 'メーラレン湖畔の赤い城' },
+      { name: 'ヨーテボリ', time: '約3時間（SJ高速列車）', desc: 'スウェーデン第2の都市、海鮮市場' },
+      { name: '群島（アルキペラゴ）', time: '1〜2時間（フェリー）', desc: '3万島の島々、夏の白夜風景' },
+    ]
+  },
+  {
+    id: 'istanbul',
+    name: 'イスタンブール',
+    airport: 'IST：イスタンブール空港',
+    emoji: '🇹🇷',
+    lat: 41.261,
+    lng: 28.742,
+    departure: '羽田 (HND)',
+    frequency: '週3便（月・水・土）',
+    style: '東西文明の交差点。ヨーロッパとアジアに跨る唯一の都市。歴史・食・バザールが凝縮。',
+    citySpots: [
+      'アヤソフィア（世界遺産）', 'スルタンアフメット・モスク（ブルーモスク）',
+      'トプカプ宮殿', 'グランドバザール', 'ガラタ橋', 'ボスポラス海峡クルーズ', 'ドルマバフチェ宮殿'
+    ],
+    daytrips: [
+      { name: 'プリンス諸島', time: '約1.5時間（フェリー）', desc: '車なし、ノスタルジックな島々' },
+      { name: 'エディルネ', time: '約2.5時間（バス）', desc: 'オスマン帝国の旧都、セリミエ・モスク（世界遺産）' },
+      { name: 'ブルサ', time: '約3時間（フェリー+バス）', desc: 'オスマン帝国発祥の地、ウルダー山' },
+      { name: 'トロイ遺跡', time: '約4時間（バス+フェリー）', desc: '木馬伝説の地（世界遺産）' },
+    ]
+  },
+];
+
+// Leaflet地図初期化
+const map = L.map('map', {
+  center: [50, 15],
+  zoom: 4,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap contributors, © CARTO',
+  maxZoom: 18
+}).addTo(map);
+
+// アクティブマーカー管理
+let activeMarker = null;
+let activeAirport = null;
+
+// カスタムアイコン生成
+function createIcon(airport, isActive) {
+  const color = isActive ? '#0ea5e9' : '#1a5f7a';
+  const border = isActive ? '#7dd3fc' : '#0ea5e9';
+  const glow = isActive ? '0 0 20px rgba(14,165,233,0.9)' : '0 0 10px rgba(14,165,233,0.4)';
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:42px; height:42px; border-radius:50%;
+      background:${color}; border:3px solid ${border};
+      display:flex; align-items:center; justify-content:center;
+      font-size:20px; cursor:pointer;
+      box-shadow:${glow};
+      transition:all 0.2s;
+    ">${airport.emoji}</div>`,
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
+    popupAnchor: [0, -25],
+  });
+}
+
+// ラベル付きツールチップ
+function createTooltipContent(airport) {
+  return `<div style="
+    background:#1e293b; border:1px solid #0ea5e9; border-radius:8px;
+    padding:6px 10px; color:#f1f5f9; font-size:13px; font-weight:600;
+    font-family:'Hiragino Sans','Meiryo',sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  ">${airport.emoji} ${airport.name}</div>`;
+}
+
+// サイドパネルに内容を表示
+function showPanel(airport) {
+  document.getElementById('default-panel').style.display = 'none';
+  const cityPanel = document.getElementById('city-panel');
+  cityPanel.style.display = 'flex';
+
+  document.getElementById('panel-title').textContent = `${airport.emoji} ${airport.name}`;
+  document.getElementById('panel-subtitle').textContent = airport.airport;
+
+  const flightDiv = document.getElementById('panel-flight');
+  flightDiv.innerHTML = `
+    <span class="flight-badge">✈️ ${airport.departure}発</span>
+    <span class="flight-badge">🕐 ${airport.frequency}</span>
+  `;
+
+  const content = document.getElementById('panel-content');
+  content.innerHTML = '';
+
+  // 市内観光スポット
+  const spotsTitle = document.createElement('div');
+  spotsTitle.className = 'section-title';
+  spotsTitle.textContent = '🏛️ 市内主要観光スポット';
+  content.appendChild(spotsTitle);
+
+  const spotsDiv = document.createElement('div');
+  spotsDiv.className = 'city-spots';
+  airport.citySpots.forEach(spot => {
+    const tag = document.createElement('span');
+    tag.className = 'spot-tag';
+    tag.textContent = spot;
+    spotsDiv.appendChild(tag);
+  });
+  content.appendChild(spotsDiv);
+
+  // 日帰り旅行先
+  const dayTitle = document.createElement('div');
+  dayTitle.className = 'section-title';
+  dayTitle.textContent = '🚆 日帰り旅行先';
+  content.appendChild(dayTitle);
+
+  const dayList = document.createElement('div');
+  dayList.className = 'daytrip-list';
+  airport.daytrips.forEach(dt => {
+    const item = document.createElement('div');
+    item.className = 'daytrip-item';
+    item.innerHTML = `
+      <div class="daytrip-name">📍 ${dt.name}</div>
+      <div class="daytrip-time">⏱️ ${dt.time}</div>
+      <div class="daytrip-desc">${dt.desc}</div>
+    `;
+    dayList.appendChild(item);
+  });
+  content.appendChild(dayList);
+
+  // 旅行スタイル
+  const styleTitle = document.createElement('div');
+  styleTitle.className = 'section-title';
+  styleTitle.textContent = '💡 旅行スタイル';
+  content.appendChild(styleTitle);
+
+  const styleBox = document.createElement('div');
+  styleBox.className = 'style-box';
+  styleBox.textContent = airport.style;
+  content.appendChild(styleBox);
+
+  // 余白
+  const spacer = document.createElement('div');
+  spacer.style.height = '24px';
+  content.appendChild(spacer);
+}
+
+// マーカーを配置
+const markers = {};
+airports.forEach(airport => {
+  const marker = L.marker([airport.lat, airport.lng], {
+    icon: createIcon(airport, false)
+  }).addTo(map);
+
+  marker.bindTooltip(createTooltipContent(airport), {
+    permanent: false,
+    direction: 'top',
+    className: 'custom-tooltip',
+    offset: [0, -5],
+  });
+
+  marker.on('click', () => {
+    // 前のアクティブマーカーをリセット
+    if (activeMarker && activeAirport) {
+      activeMarker.setIcon(createIcon(activeAirport, false));
+    }
+
+    // 新しいマーカーをアクティブに
+    marker.setIcon(createIcon(airport, true));
+    activeMarker = marker;
+    activeAirport = airport;
+
+    // 地図をズーム
+    map.flyTo([airport.lat, airport.lng], 7, {
+      duration: 1.2,
+      easeLinearity: 0.5
+    });
+
+    // パネルを更新
+    showPanel(airport);
+  });
+
+  markers[airport.id] = marker;
+});
+
+// フライトルートのアニメーション線（東京から各空港へ）
+// 東京（羽田）の位置
+const tokyo = [35.5494, 139.7798];
+
+airports.forEach(airport => {
+  const latlngs = [tokyo, [airport.lat, airport.lng]];
+  const line = L.polyline(latlngs, {
+    color: '#0ea5e9',
+    weight: 1,
+    opacity: 0.15,
+    dashArray: '6, 8',
+  }).addTo(map);
+});
+
+// 凡例追加
+const legend = L.control({ position: 'bottomleft' });
+legend.onAdd = function() {
+  const div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = `
+    <div style="font-weight:700; color:#e2e8f0; margin-bottom:4px;">✈️ ANA直行便 就航都市</div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#0ea5e9; box-shadow:0 0 6px #0ea5e9;"></div>
+      <span>空港マーカー（クリックで詳細）</span>
+    </div>
+    <div class="legend-item">
+      <div style="width:24px; height:1px; background:#0ea5e9; opacity:0.5; border-top: 1px dashed #0ea5e9;"></div>
+      <span>東京〜ヨーロッパ フライトルート</span>
+    </div>
+    <div style="margin-top:8px; font-size:11px; color:#475569;">
+      出発地：羽田(HND) / 成田(NRT)
+    </div>
+  `;
+  return div;
+};
+legend.addTo(map);
+
+// カスタムツールチップのスタイル上書き
+const style = document.createElement('style');
+style.textContent = `
+  .custom-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; }
+  .custom-tooltip::before { display: none !important; }
+  .leaflet-tooltip { background: transparent; border: none; box-shadow: none; }
+`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>
