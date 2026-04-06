@@ -261,7 +261,7 @@
       header p { display: none; }
       header .badge { font-size: 11px; padding: 3px 9px; }
 
-      .main { position: relative; }
+      .main { position: relative; flex: 1; }
 
       #map {
         position: absolute;
@@ -278,8 +278,7 @@
         left: 0;
         right: 0;
         width: 100%;
-        height: auto;
-        max-height: 80vh;
+        height: 80vh;
         border-left: none;
         border-top: none;
         border-radius: 20px 20px 0 0;
@@ -794,6 +793,8 @@ airports.forEach(airport => {
 
     // パネルを更新
     showPanel(airport);
+    // モバイルではボトムシートを開く
+    if (window.innerWidth <= 768) openSheet();
   });
 
   markers[airport.id] = marker;
@@ -901,20 +902,6 @@ sheetHandle.addEventListener('touchend', e => {
   }
 }, { passive: true });
 
-// showPanel をモバイル対応に拡張
-const _origShowPanel = showPanel;
-window.showPanel = function(airport) {
-  _origShowPanel(airport);
-  if (isMobile()) openSheet();
-};
-
-// マーカークリック時もモバイルでは地図ズームを調整
-airports.forEach(airport => {
-  const m = markers[airport.id];
-  if (!m) return;
-  // 既存のclickにモバイル追加処理は marker.on('click') 内で処理済み
-  // ただしflyToのズームレベルをモバイルでは少し引いておく
-});
 
 // 都市一覧ボタン：タップするとリスト表示（モバイル用簡易ナビ）
 const cityListModal = document.createElement('div');
@@ -965,6 +952,7 @@ airports.forEach(airport => {
     const zoom = isMobile() ? 6 : 7;
     map.flyTo([airport.lat, airport.lng], zoom, { duration: 1.2 });
     showPanel(airport);
+    openSheet();
   });
   modalList.appendChild(btn);
 });
